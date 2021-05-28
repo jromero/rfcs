@@ -29,12 +29,15 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__webpack_require__(186));
 const github = __importStar(__webpack_require__(438));
-try {
-    core.debug(`COMMENT: ${JSON.stringify(github.context.payload.comment)}`);
+function main() {
+    try {
+        core.info(`COMMENT: ${JSON.stringify(github.context.payload.comment)}`);
+    }
+    catch (error) {
+        core.setFailed(error.message);
+    }
 }
-catch (error) {
-    core.setFailed(error.message);
-}
+main();
 // function isCI(): boolean {
 //   return process.env['CI'] === 'true'
 // }
