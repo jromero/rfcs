@@ -18,8 +18,8 @@ const TEMPLATE = `Maintainers,
 
 As you review this RFC please queue up issues to be created using the following commands:
 
-> /queue-issue <repo> "<title>" [labels]...
-> /unqueue-issue <uid>
+    queue-issue <repo> "<title>" [labels]...
+    unqueue-issue <uid>
 
 ### Queued Issues
 
@@ -123,46 +123,60 @@ const github = __importStar(__webpack_require__(5438));
 const bot_comment_1 = __webpack_require__(1357);
 const parse_1 = __webpack_require__(5223);
 function main() {
-    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            core.info(`PAYLOAD: ${JSON.stringify(github.context.payload, null, 2)}`);
-            if (!github.context.payload.comment) {
+            const payload = github.context.payload;
+            core.info(`PAYLOAD: ${JSON.stringify(payload, null, 2)}`);
+            if (!payload.comment) {
                 throw Error('no comment found in payload');
             }
+            const { owner, repo } = github.context.repo;
             const botUsername = core.getInput('bot-username', { required: true });
             const githubToken = core.getInput('github-token', { required: true });
             const octokit = github.getOctokit(githubToken);
-            const comment = github.context.payload.comment;
-            // const username = comment.user.login;
-            const issue_number = (_a = (github.context.payload.issue || github.context.payload.pull_request)) === null || _a === void 0 ? void 0 : _a.number;
-            if (!issue_number) {
-                throw Error("couldn't find issue/pr number");
-            }
-            // TODO: If error, reply to user with error.
-            const { owner, repo } = github.context.repo;
+            const username = payload.comment.user.login;
+            const issue_number = (payload.issue || payload.pull_request).number;
+            const operations = parse_1.parseUserComment(payload.comment.body);
+            // find possibly existing bot comment
             const botComment = (yield octokit.rest.issues.listComments({
                 owner,
                 repo,
                 issue_number,
                 per_page: 100
             })).data.find(c => { var _a; return ((_a = c.user) === null || _a === void 0 ? void 0 : _a.login) === botUsername; });
-            const operations = parse_1.parseUserComment(comment.body);
+            // generate (updated) bot comment
             const { updatedComment, errors } = bot_comment_1.updateBotComment((botComment === null || botComment === void 0 ? void 0 : botComment.body) || '', operations);
+            // comment or reply errors
             if (errors.length) {
-                throw Error(`updating comment: ${errors.join(', ')}`);
-            }
-            if (botComment) {
-                if (botComment.body !== updatedComment) {
-                    core.info(`Updating bot comment:`);
-                    core.info(updatedComment);
-                    octokit.rest.issues.updateComment({
+                const errorBody = `@${username}, there was a problem:
+${errors.map(e => `  * ${e}`).join('\n')}`;
+                if (payload.pull_request) {
+                    yield octokit.rest.pulls.createReplyForReviewComment({
                         owner,
                         repo,
-                        comment_id: botComment.id,
-                        body: updatedComment
+                        pull_number: issue_number,
+                        comment_id: payload.comment.id,
+                        body: errorBody
                     });
                 }
+                else {
+                    yield octokit.rest.issues.createComment({
+                        owner,
+                        repo,
+                        issue_number,
+                        body: errorBody
+                    });
+                }
+            }
+            // post/update bot comment
+            if (botComment && botComment.body !== updatedComment) {
+                core.info(`Updating bot comment:\n${updatedComment}`);
+                yield octokit.rest.issues.updateComment({
+                    owner,
+                    repo,
+                    comment_id: botComment.id,
+                    body: updatedComment
+                });
             }
             else {
                 yield octokit.rest.issues.createComment({
@@ -179,9 +193,6 @@ function main() {
     });
 }
 main();
-// function isCI(): boolean {
-//   return process.env['CI'] === 'true'
-// }
 
 
 /***/ }),
