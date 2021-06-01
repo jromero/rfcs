@@ -1,5 +1,7 @@
 name: Issues Generation
 
+concurrency: issues-generation
+
 on:
   issue_comment:
     types: [created, deleted]
@@ -15,4 +17,4 @@ jobs:
         uses: ./.github/workflows/actions/issues-generation
         id: issues-generation
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.LEARNING_GITHUB_TOKEN }}
