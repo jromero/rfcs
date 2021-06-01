@@ -5,8 +5,8 @@ const TEMPLATE = `Maintainers,
 
 As you review this RFC please queue up issues to be created using the following commands:
 
-/queue-issue <repo> "<title>" [labels]...
-/unqueue-issue <uid>
+    queue-issue <repo> "<title>" [labels]...
+    unqueue-issue <uid>
 
 ### Queued Issues
 

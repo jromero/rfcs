@@ -66,7 +66,7 @@ function extractAdditions(contents: string): Add[] {
   const issues: Add[] = []
 
   let match
-  const regex = new RegExp(`^/queue-issue\\s+(.*)$`, 'mg')
+  const regex = /^\/queue-issue\s+(.*)$/gm
   while ((match = regex.exec(contents))) {
     const issue = parseIssue(match[1])
     if (issue) {

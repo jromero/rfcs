@@ -1,18 +1,24 @@
 name: Issues Generation
 
+concurrency: issues-generation
+
 on:
   issue_comment:
-    types: [created, deleted]
+    types: [created]
   pull_request_review_comment:
-    types: [created, deleted]
+    types: [created]
+  pull_request_target:
+    types: [opened, reopened]
 
 jobs:
-  release:
-    if: ${{ startsWith(github.ref, 'refs/heads/release/') }}
+  issue-generation-bot:
+    if: ${{ github.event.issue.pull_request || github.event.pull_request }}
     runs-on: ubuntu-latest
     steps:
-      - name: Generate changelog
-        uses: ./.github/workflows/actions/release-notes
-        id: changelog
+      - uses: actions/checkout@v2
+      - name: Run Issue Generation
+        uses: ./.github/workflows/actions/issues-generation
+        id: issues-generation
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.LEARNING_GITHUB_TOKEN }}
+          bot-username: buildpack-bot
