@@ -18,8 +18,8 @@ const TEMPLATE = `Maintainers,
 
 As you review this RFC please queue up issues to be created using the following commands:
 
-/queue-issue <repo> "<title>" [labels]...
-/unqueue-issue <uid>
+> /queue-issue <repo> "<title>" [labels]...
+> /unqueue-issue <uid>
 
 ### Queued Issues
 
@@ -130,33 +130,48 @@ function main() {
             if (!github.context.payload.comment) {
                 throw Error('no comment found in payload');
             }
+            const botUsername = core.getInput('bot-username', { required: true });
             const githubToken = core.getInput('github-token', { required: true });
             const octokit = github.getOctokit(githubToken);
             const comment = github.context.payload.comment;
             // const username = comment.user.login;
-            // TODO: Create a bot comment.
             const issue_number = (_a = (github.context.payload.issue || github.context.payload.pull_request)) === null || _a === void 0 ? void 0 : _a.number;
             if (!issue_number) {
                 throw Error("couldn't find issue/pr number");
             }
-            const operations = parse_1.parseUserComment(comment.body);
-            if (operations.length) {
-                core.info('No issue related comments found.');
-                return;
-            }
-            // TODO: Update bot comment if one exists.
             // TODO: If error, reply to user with error.
-            const { updatedComment, errors } = bot_comment_1.updateBotComment('', operations);
-            if (errors.length) {
-                throw Error(`updating comment: ${errors.join(', ')}`);
-            }
             const { owner, repo } = github.context.repo;
-            yield octokit.rest.issues.createComment({
+            const botComment = (yield octokit.rest.issues.listComments({
                 owner,
                 repo,
                 issue_number,
-                body: updatedComment
-            });
+                per_page: 100
+            })).data.find(c => { var _a; return ((_a = c.user) === null || _a === void 0 ? void 0 : _a.login) === botUsername; });
+            const operations = parse_1.parseUserComment(comment.body);
+            const { updatedComment, errors } = bot_comment_1.updateBotComment((botComment === null || botComment === void 0 ? void 0 : botComment.body) || '', operations);
+            if (errors.length) {
+                throw Error(`updating comment: ${errors.join(', ')}`);
+            }
+            if (botComment) {
+                if (botComment.body !== updatedComment) {
+                    core.info(`Updating bot comment:`);
+                    core.info(updatedComment);
+                    octokit.rest.issues.updateComment({
+                        owner,
+                        repo,
+                        comment_id: botComment.id,
+                        body: updatedComment
+                    });
+                }
+            }
+            else {
+                yield octokit.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number,
+                    body: updatedComment
+                });
+            }
         }
         catch (error) {
             core.setFailed(error.message);
@@ -222,7 +237,7 @@ exports.parseIssue = parseIssue;
 function extractAdditions(contents) {
     const issues = [];
     let match;
-    const regex = new RegExp(`^/queue-issue\\s+(.*)$`, 'mg');
+    const regex = /^\/queue-issue\s+(.*)$/gm;
     while ((match = regex.exec(contents))) {
         const issue = parseIssue(match[1]);
         if (issue) {

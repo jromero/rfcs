@@ -18,3 +18,4 @@ jobs:
         id: issues-generation
         with:
           github-token: ${{ secrets.LEARNING_GITHUB_TOKEN }}
+          bot-username: buildpack-bot

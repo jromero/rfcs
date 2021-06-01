@@ -11,36 +11,58 @@ async function main(): Promise<void> {
       throw Error('no comment found in payload')
     }
 
+    const botUsername = core.getInput('bot-username', {required: true})
     const githubToken = core.getInput('github-token', {required: true})
     const octokit = github.getOctokit(githubToken)
     const comment = github.context.payload.comment
     // const username = comment.user.login;
 
-    const issue_number = (github.context.payload.issue || github.context.payload.pull_request)?.number
+    const issue_number = (
+      github.context.payload.issue || github.context.payload.pull_request
+    )?.number
     if (!issue_number) {
       throw Error("couldn't find issue/pr number")
     }
 
-    const operations = parseUserComment(comment.body)
-    if (operations.length) {
-      core.info('No issue related comments found.')
-      return
-    }
-
-    // TODO: Update bot comment if one exists.
     // TODO: If error, reply to user with error.
-    const {updatedComment, errors} = updateBotComment('', operations)
+    const {owner, repo} = github.context.repo
+    const botComment = (
+      await octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number,
+        per_page: 100
+      })
+    ).data.find(c => c.user?.login === botUsername)
+
+    const operations = parseUserComment(comment.body)
+    const {updatedComment, errors} = updateBotComment(
+      botComment?.body || '',
+      operations
+    )
     if (errors.length) {
       throw Error(`updating comment: ${errors.join(', ')}`)
     }
 
-    const {owner, repo} = github.context.repo
-    await octokit.rest.issues.createComment({
-      owner,
-      repo,
-      issue_number,
-      body: updatedComment
-    })
+    if (botComment) {
+      if (botComment.body !== updatedComment) {
+        core.info(`Updating bot comment:`)
+        core.info(updatedComment)
+        octokit.rest.issues.updateComment({
+          owner,
+          repo,
+          comment_id: botComment.id,
+          body: updatedComment
+        })
+      }
+    } else {
+      await octokit.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number,
+        body: updatedComment
+      })
+    }
   } catch (error) {
     core.setFailed(error.message)
   }
