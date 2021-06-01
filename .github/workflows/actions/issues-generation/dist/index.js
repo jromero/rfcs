@@ -123,23 +123,25 @@ const github = __importStar(__webpack_require__(5438));
 const bot_comment_1 = __webpack_require__(1357);
 const parse_1 = __webpack_require__(5223);
 function main() {
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const payload = github.context.payload;
             core.info(`PAYLOAD: ${JSON.stringify(payload, null, 2)}`);
-            if (!payload.comment) {
-                throw Error('No comment found in payload.');
-            }
             const { owner, repo } = github.context.repo;
             const botUsername = core.getInput('bot-username', { required: true });
             const githubToken = core.getInput('github-token', { required: true });
             const octokit = github.getOctokit(githubToken);
-            const username = payload.comment.user.login;
             const issue_number = (payload.issue || payload.pull_request).number;
-            const operations = parse_1.parseUserComment(payload.comment.body);
+            const username = (_a = payload.sender) === null || _a === void 0 ? void 0 : _a.login;
             if (username === botUsername) {
                 core.info(`Not processing comments from bot account '${botUsername}'.`);
                 return;
+            }
+            let operations = [];
+            if (payload.comment) {
+                core.info(`> Parsing user comment for operations...`);
+                operations = parse_1.parseUserComment(payload.comment.body);
             }
             core.info(`> Searching for bot comment...`);
             const comments = yield octokit.paginate(octokit.rest.issues.listComments, {
@@ -158,7 +160,7 @@ function main() {
                 core.info(`Posting errors: ${errors.join(',')}`);
                 const errorBody = `@${username}, there was a problem:
 ${errors.map(e => `  * ${e}`).join('\n')}`;
-                if (payload.pull_request) {
+                if (payload.pull_request && payload.comment) {
                     yield octokit.rest.pulls.createReplyForReviewComment({
                         owner,
                         repo,
