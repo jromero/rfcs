@@ -142,12 +142,12 @@ function main() {
                 return;
             }
             core.info(`> Searching for bot comment...`);
-            const botComment = (yield octokit.rest.issues.listComments({
+            const comments = yield octokit.paginate(octokit.rest.issues.listComments, {
                 owner,
                 repo,
-                issue_number,
-                per_page: 100
-            })).data.find(c => { var _a; return ((_a = c.user) === null || _a === void 0 ? void 0 : _a.login) === botUsername; });
+                issue_number
+            });
+            const botComment = comments.find(c => { var _a; return ((_a = c.user) === null || _a === void 0 ? void 0 : _a.login) === botUsername; });
             if (botComment) {
                 core.info(`Found existing bot comment: ${botComment.html_url}`);
             }

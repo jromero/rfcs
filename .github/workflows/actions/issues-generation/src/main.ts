@@ -26,14 +26,12 @@ async function main(): Promise<void> {
     }
 
     core.info(`> Searching for bot comment...`)
-    const botComment = (
-      await octokit.rest.issues.listComments({
-        owner,
-        repo,
-        issue_number,
-        per_page: 100
-      })
-    ).data.find(c => c.user?.login === botUsername)
+    const comments = await octokit.paginate(octokit.rest.issues.listComments, {
+      owner,
+      repo,
+      issue_number
+    })
+    const botComment = comments.find(c => c.user?.login === botUsername)
     if (botComment) {
       core.info(`Found existing bot comment: ${botComment.html_url}`)
     }
