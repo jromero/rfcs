@@ -9,7 +9,7 @@ async function main(): Promise<void> {
     core.info(`PAYLOAD: ${JSON.stringify(payload, null, 2)}`)
 
     if (!payload.comment) {
-      throw Error('no comment found in payload')
+      throw Error('No comment found in payload.')
     }
 
     const {owner, repo} = github.context.repo
@@ -20,7 +20,12 @@ async function main(): Promise<void> {
     const issue_number = (payload.issue || payload.pull_request)!.number
     const operations = parseUserComment(payload.comment.body)
 
-    // find possibly existing bot comment
+    if (username === botUsername) {
+      core.info(`Not processing comments from bot account '${botUsername}'.`)
+      return
+    }
+
+    core.info(`> Searching for bot comment...`)
     const botComment = (
       await octokit.rest.issues.listComments({
         owner,
@@ -29,15 +34,19 @@ async function main(): Promise<void> {
         per_page: 100
       })
     ).data.find(c => c.user?.login === botUsername)
+    if (botComment) {
+      core.info(`Found existing bot comment: ${botComment.html_url}`)
+    }
 
-    // generate (updated) bot comment
+    core.info(`> Generating (updated) bot comment...`)
     const {updatedComment, errors} = updateBotComment(
       botComment?.body || '',
       operations
     )
 
-    // comment or reply errors
+    core.info(`> Checking for errors...`)
     if (errors.length) {
+      core.info(`Posting errors: ${errors.join(',')}`)
       const errorBody = `@${username}, there was a problem:
 ${errors.map(e => `  * ${e}`).join('\n')}`
       if (payload.pull_request) {
@@ -58,7 +67,7 @@ ${errors.map(e => `  * ${e}`).join('\n')}`
       }
     }
 
-    // post/update bot comment
+    core.info(`> Posting bot comment...`)
     if (botComment && botComment.body !== updatedComment) {
       core.info(`Updating bot comment:\n${updatedComment}`)
       await octokit.rest.issues.updateComment({
@@ -68,6 +77,7 @@ ${errors.map(e => `  * ${e}`).join('\n')}`
         body: updatedComment
       })
     } else {
+      core.info(`> Posting bot comment:${updatedComment}\n`)
       await octokit.rest.issues.createComment({
         owner,
         repo,

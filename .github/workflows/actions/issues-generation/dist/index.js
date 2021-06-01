@@ -128,7 +128,7 @@ function main() {
             const payload = github.context.payload;
             core.info(`PAYLOAD: ${JSON.stringify(payload, null, 2)}`);
             if (!payload.comment) {
-                throw Error('no comment found in payload');
+                throw Error('No comment found in payload.');
             }
             const { owner, repo } = github.context.repo;
             const botUsername = core.getInput('bot-username', { required: true });
@@ -137,17 +137,25 @@ function main() {
             const username = payload.comment.user.login;
             const issue_number = (payload.issue || payload.pull_request).number;
             const operations = parse_1.parseUserComment(payload.comment.body);
-            // find possibly existing bot comment
+            if (username === botUsername) {
+                core.info(`Not processing comments from bot account '${botUsername}'.`);
+                return;
+            }
+            core.info(`> Searching for bot comment...`);
             const botComment = (yield octokit.rest.issues.listComments({
                 owner,
                 repo,
                 issue_number,
                 per_page: 100
             })).data.find(c => { var _a; return ((_a = c.user) === null || _a === void 0 ? void 0 : _a.login) === botUsername; });
-            // generate (updated) bot comment
+            if (botComment) {
+                core.info(`Found existing bot comment: ${botComment.html_url}`);
+            }
+            core.info(`> Generating (updated) bot comment...`);
             const { updatedComment, errors } = bot_comment_1.updateBotComment((botComment === null || botComment === void 0 ? void 0 : botComment.body) || '', operations);
-            // comment or reply errors
+            core.info(`> Checking for errors...`);
             if (errors.length) {
+                core.info(`Posting errors: ${errors.join(',')}`);
                 const errorBody = `@${username}, there was a problem:
 ${errors.map(e => `  * ${e}`).join('\n')}`;
                 if (payload.pull_request) {
@@ -168,7 +176,7 @@ ${errors.map(e => `  * ${e}`).join('\n')}`;
                     });
                 }
             }
-            // post/update bot comment
+            core.info(`> Posting bot comment...`);
             if (botComment && botComment.body !== updatedComment) {
                 core.info(`Updating bot comment:\n${updatedComment}`);
                 yield octokit.rest.issues.updateComment({
@@ -179,6 +187,7 @@ ${errors.map(e => `  * ${e}`).join('\n')}`;
                 });
             }
             else {
+                core.info(`> Posting bot comment:${updatedComment}\n`);
                 yield octokit.rest.issues.createComment({
                     owner,
                     repo,

@@ -4,9 +4,9 @@ concurrency: issues-generation
 
 on:
   issue_comment:
-    types: [created, deleted]
+    types: [created]
   pull_request_review_comment:
-    types: [created, deleted]
+    types: [created]
 
 jobs:
   issue-generation-bot:
