@@ -1,22 +1,23 @@
-export const REGEX_ISSUE = `([^\\s]+)\\s+("([^\\"]+)"|'([^\\']+)')(.*)`
+const REGEX_ISSUE = `([^\\s]+)\\s+("([^\\"]+)"|'([^\\']+)')(.*)`
 
-export interface QueuedIssue {
+export interface IssueDetails {
   repo: string
+  num?: number
   title: string
   labels: string[]
 }
 
-export interface Add {
-  op: 'add'
-  issue: QueuedIssue
+export interface Addition {
+  op: 'addition'
+  issue: IssueDetails
 }
 
-export interface Remove {
-  op: 'remove'
+export interface Removal {
+  op: 'removal'
   uid: string
 }
 
-export type Operation = Add | Remove
+export type Operation = Addition | Removal
 
 /**
  * Extract Operations found in any content
@@ -43,7 +44,7 @@ export function parseUserComment(contents: string): Operation[] {
  *
  * @returns QueuedIssue or undefined when not a match
  */
-export function parseIssue(str: string): QueuedIssue | undefined {
+export function parseIssue(str: string): IssueDetails | undefined {
   const match = new RegExp(REGEX_ISSUE).exec(str)
   if (match && match.length >= 6) {
     return {
@@ -62,16 +63,15 @@ export function parseIssue(str: string): QueuedIssue | undefined {
  * @param contents
  * @returns array of additions
  */
-function extractAdditions(contents: string): Add[] {
-  const issues: Add[] = []
+function extractAdditions(contents: string): Addition[] {
+  const issues: Addition[] = []
 
   let match
   const regex = /^\/queue-issue\s+(.*)$/gm
   while ((match = regex.exec(contents))) {
     const issue = parseIssue(match[1])
     if (issue) {
-      console.log('Adding:', match[0]) // eslint-disable-line no-console
-      issues.push({op: 'add', issue})
+      issues.push({op: 'addition', issue})
     }
   }
 
@@ -102,18 +102,35 @@ export function extractLabels(contents: string): string[] {
  * @param contents
  * @returns array of removals found
  */
-function parseRemovals(contents: string): Remove[] {
-  const issues: Remove[] = []
+function parseRemovals(contents: string): Removal[] {
+  const issues: Removal[] = []
 
   let match
   const regex = /^\/unqueue-issue\s+(\w+)/gm
   while ((match = regex.exec(contents))) {
-    console.log('Removing:', match[0]) // eslint-disable-line no-console
     issues.push({
-      op: 'remove',
+      op: 'removal',
       uid: match[1]
     })
   }
 
   return issues
+}
+
+export function parseIssueReference(
+  ref: string
+): {owner: string; repo: string; num: number} | Error {
+  const match = /^([^\/]+)\/([^\/]+)#(\d)$/.exec(ref)
+  if (!match) {
+    return Error(
+      "Invalid pull request reference! Expected format '{owner}/{repo}#{pr_number}'."
+    )
+  }
+
+  const [_, owner, repo, num] = match
+  return {
+    owner,
+    repo,
+    num: Number(num)
+  }
 }

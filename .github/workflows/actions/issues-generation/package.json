@@ -1,44 +1,62 @@
 {
-  "name": "typescript-action",
-  "version": "0.0.0",
+  "name": "issues-generation",
+  "version": "0.0.1",
   "private": true,
-  "description": "TypeScript template action",
+  "description": "An issues generation tool for GitHub pull requests",
   "main": "lib/main.js",
+  "bin": {
+    "issues-generation": "./dist/index.js"
+  },
+  "oclif": {
+    "commands": "./lib/commands",
+    "bin": "issues-generation",
+    "plugins": [
+      "@oclif/plugin-help"
+    ]
+  },
   "scripts": {
-    "format": "prettier --write **/*.ts",
-    "format-check": "prettier --check **/*.ts",
+    "format": "prettier --write src/**/*.ts",
+    "format-check": "prettier --check src/**/*.ts",
     "lint": "eslint src/**/*.ts",
     "test": "jest",
-    "build": "tsc && ncc build --source-map --license licenses.txt",
-    "local": "npm run build && npm run package && node dist/index.js",
-    "prepare-for-pr": "npm run format && npm run all",
-    "all": "npm run format-check && npm run lint && npm run build && npm test"
+    "validate": "npm run format-check && npm run lint && npm run test",
+    "clean": "rm -f oclif.manifest.json && rm -rf dist/*",
+    "build": "tsc -b && oclif-dev manifest && oclif-dev readme",
+    "prepackage": "npm run clean && npm run format && npm run build",
+    "package": "npm run prepackage && ncc build lib/index.js --external typescript",
+    "prepare-for-pr": "npm run format && npm run validate && npm run package"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/actions/typescript-action.git"
-  },
+  "files": [
+    "/dist",
+    "/oclif.manifest.json"
+  ],
   "keywords": [
-    "actions",
-    "node",
-    "setup"
+    "actions"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.6",
     "@actions/github": "^5.0.0",
+    "@oclif/command": "^1.8.0",
+    "@oclif/config": "^1.17.0",
+    "@oclif/plugin-help": "^3.2.2",
     "@octokit/rest": "^18.5.3",
     "hash.js": "^1.1.7"
   },
   "devDependencies": {
+    "@oclif/dev-cli": "^1.26.0",
     "@types/jest": "^26.0.23",
-    "@types/node": "^14.14.9",
+    "@types/node": "^14.17.3",
     "@typescript-eslint/parser": "^4.8.1",
     "@vercel/ncc": "^0.25.1",
     "eslint": "^7.17.0",
+    "eslint-config-oclif": "^3.1.0",
+    "eslint-config-oclif-typescript": "^0.2.0",
+    "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-github": "^4.1.1",
     "eslint-plugin-jest": "^24.1.3",
+    "eslint-plugin-prettier": "^3.4.0",
     "jest": "^26.6.3",
     "jest-circus": "^26.6.3",
     "js-yaml": "^3.14.0",

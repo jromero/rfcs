@@ -1,6 +1,6 @@
 name: 'Issue Generation'
 description: 'Automation to keep track of what issues to generate for pull requests.'
-author: 'buildpacks'
+author: 'jromero'
 inputs:
   github-token:
     description: GitHub token of bot account.

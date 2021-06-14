@@ -6,7 +6,7 @@ describe('#parseUserComment', function () {
       let actions = parseUserComment(`/queue-issue org/repo "my title"`)
       expect(actions).toHaveLength(1)
       expect(actions[0]).toEqual({
-        op: 'add',
+        op: 'addition',
         issue: {repo: 'org/repo', title: 'my title', labels: []}
       })
     })
@@ -17,7 +17,7 @@ describe('#parseUserComment', function () {
       )
       expect(actions).toHaveLength(1)
       expect(actions[0]).toEqual({
-        op: 'add',
+        op: 'addition',
         issue: {
           repo: 'org/repo',
           title: `title with "quotes"`,
@@ -32,7 +32,7 @@ describe('#parseUserComment', function () {
       )
       expect(actions).toHaveLength(1)
       expect(actions[0]).toEqual({
-        op: 'add',
+        op: 'addition',
         issue: {
           repo: 'org/repo',
           title: `my title`,
@@ -48,11 +48,11 @@ describe('#parseUserComment', function () {
       `)
       expect(actions).toHaveLength(2)
       expect(actions[0]).toEqual({
-        op: 'add',
+        op: 'addition',
         issue: {repo: 'org/repo', title: `issue 1`, labels: []}
       })
       expect(actions[1]).toEqual({
-        op: 'add',
+        op: 'addition',
         issue: {
           repo: 'org/repo',
           title: `issue 2`,
@@ -68,11 +68,11 @@ describe('#parseUserComment', function () {
 /queue-issue org/repo "issue 2" [label-1][label 2]`)
       expect(actions).toHaveLength(2)
       expect(actions[0]).toEqual({
-        op: 'add',
+        op: 'addition',
         issue: {repo: 'org/repo', title: `issue 1`, labels: []}
       })
       expect(actions[1]).toEqual({
-        op: 'add',
+        op: 'addition',
         issue: {
           repo: 'org/repo',
           title: `issue 2`,
@@ -86,7 +86,7 @@ describe('#parseUserComment', function () {
     test('unqueue-issue single issue', async () => {
       let actions = parseUserComment(`/unqueue-issue aB123`)
       expect(actions).toHaveLength(1)
-      expect(actions[0]).toEqual({op: 'remove', uid: 'aB123'})
+      expect(actions[0]).toEqual({op: 'removal', uid: 'aB123'})
     })
 
     test('unqueue-issue multiple issues', async () => {
@@ -95,8 +95,8 @@ describe('#parseUserComment', function () {
 /unqueue-issue zy987
 `)
       expect(actions).toHaveLength(2)
-      expect(actions[0]).toEqual({op: 'remove', uid: 'aB123'})
-      expect(actions[1]).toEqual({op: 'remove', uid: 'zy987'})
+      expect(actions[0]).toEqual({op: 'removal', uid: 'aB123'})
+      expect(actions[1]).toEqual({op: 'removal', uid: 'zy987'})
     })
   })
 })
