@@ -1,5 +1,9 @@
 import {Command, flags} from '@oclif/command'
-import {extractIssuesFromBotComment, findFirstBotComment} from '../bot-comment'
+import {
+  extractIssuesFromBotComment,
+  findFirstBotComment,
+  generateIssueLineItem
+} from '../bot-comment'
 import {Octokit} from '@octokit/rest'
 import {parseIssueReference} from '../parse'
 
@@ -25,14 +29,15 @@ export default class List extends Command {
     "id": "qwerty",
     "repo": "myorg/myrepo",
     "title": "some other title",
-    "labels": []
+    "labels": [],
+    "num": 2
   }
 ]
 `,
     `$ GITHUB_TOKEN=token issues-generation list --pr my/repo#1 --bot my-bot
 
 * asdfgh - myorg/myrepo "some title" [a-label][b-label]
-* qwerty - myorg/myrepo "some other title"
+* qwerty - myorg/myrepo#2 "some other title"
 `
   ]
 
@@ -70,24 +75,18 @@ export default class List extends Command {
       this.error('No bot comment found on PR!')
     }
 
-    const queuedIssues = extractIssuesFromBotComment(comment.body)
+    const issues = extractIssuesFromBotComment(comment.body)
     if (options.json) {
-      this.log(JSON.stringify(queuedIssues, null, 2))
+      this.log(JSON.stringify(issues, null, 2))
     } else {
-      if (queuedIssues.length === 0) {
+      if (issues.length === 0) {
         this.log('No issue found!')
         this.exit(0)
       }
 
-      for (const issue of queuedIssues) {
-        let labelsString = ''
-        if (issue.labels.length > 0) {
-          labelsString = ` [${issue.labels.join('][')}]`
-        }
-
-        this.log(
-          ` * ${issue.uid} - ${issue.repo} ${issue.title}${labelsString}`
-        )
+      for (const issue of issues) {
+        this.debug(issue)
+        this.log(generateIssueLineItem(issue))
       }
     }
   }

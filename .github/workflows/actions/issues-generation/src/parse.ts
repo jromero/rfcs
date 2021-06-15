@@ -17,7 +17,13 @@ export interface Removal {
   uid: string
 }
 
-export type Operation = Addition | Removal
+export interface Creation {
+  op: 'creation'
+  uid: string
+  num: number
+}
+
+export type Operation = Addition | Removal | Creation
 
 /**
  * Extract Operations found in any content
@@ -37,24 +43,6 @@ export function parseUserComment(contents: string): Operation[] {
   }
 
   return actions
-}
-
-/**
- * parse an individual issue
- *
- * @returns QueuedIssue or undefined when not a match
- */
-export function parseIssue(str: string): IssueDetails | undefined {
-  const match = new RegExp(REGEX_ISSUE).exec(str)
-  if (match && match.length >= 6) {
-    return {
-      repo: match[1],
-      title: match[3] || match[4],
-      labels: extractLabels(match[5])
-    }
-  }
-
-  return
 }
 
 /**
@@ -117,10 +105,38 @@ function parseRemovals(contents: string): Removal[] {
   return issues
 }
 
+/**
+ * parse an individual issue
+ *
+ * @returns IssueDetails or undefined when not a match
+ */
+export function parseIssue(str: string): IssueDetails | undefined {
+  const match = new RegExp(REGEX_ISSUE).exec(str)
+  if (match && match.length >= 6) {
+    // parse repo with potential issue reference
+    let repo = match[1]
+    let num: number | undefined = undefined
+    const result = parseIssueReference(match[1])
+    if (!(result instanceof Error)) {
+      repo = `${result.owner}/${result.repo}`
+      num = result.num
+    }
+
+    return {
+      repo,
+      title: match[3] || match[4],
+      labels: extractLabels(match[5]),
+      num
+    }
+  }
+
+  return
+}
+
 export function parseIssueReference(
   ref: string
 ): {owner: string; repo: string; num: number} | Error {
-  const match = /^([^\/]+)\/([^\/]+)#(\d)$/.exec(ref)
+  const match = /^([^\/]+)\/([^\/]+)#(\d+)$/.exec(ref)
   if (!match) {
     return Error(
       "Invalid pull request reference! Expected format '{owner}/{repo}#{pr_number}'."

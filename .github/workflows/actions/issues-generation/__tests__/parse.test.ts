@@ -1,4 +1,4 @@
-import {parseUserComment} from '../src/parse'
+import {parseIssue, parseUserComment} from '../src/parse'
 
 describe('#parseUserComment', function () {
   describe('queue-issue', function () {
@@ -98,5 +98,25 @@ describe('#parseUserComment', function () {
       expect(actions[0]).toEqual({op: 'removal', uid: 'aB123'})
       expect(actions[1]).toEqual({op: 'removal', uid: 'zy987'})
     })
+  })
+})
+
+describe('#parseIssue', function () {
+  test('queued', function () {
+    const issue = parseIssue('some/repo "a title" [label-1]')
+
+    expect(issue?.repo).toEqual('some/repo')
+    expect(issue?.num).toBeUndefined()
+    expect(issue?.title).toEqual('a title')
+    expect(issue?.labels).toEqual(['label-1'])
+  })
+
+  test('created', function () {
+    const issue = parseIssue('some/repo#1 "a title" [label-1]')
+
+    expect(issue?.repo).toEqual('some/repo')
+    expect(issue?.num).toEqual(1)
+    expect(issue?.title).toEqual('a title')
+    expect(issue?.labels).toEqual(['label-1'])
   })
 })

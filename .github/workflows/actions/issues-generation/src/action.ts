@@ -41,7 +41,7 @@ export async function action(): Promise<void> {
     )
 
     core.info(`> Generating (updated) bot comment...`)
-    const {updatedComment, errors} = generateBotComment(
+    const [updatedComment, errors] = generateBotComment(
       existingQueuedIssues,
       operations
     )

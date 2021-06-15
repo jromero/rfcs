@@ -34,7 +34,7 @@ generate_id() {
 
 link_issue() {
   local issue="$1"
-  link=$(echo "$issue" | sed -E "s|buildpacks/(.*)#([[:digit:]]+)|https://github.com/${OWNER}/\1/issues/\2|")
+  link=$(echo "$issue" | sed -E "s|([^\/]+)/([^#]+)#([[:digit:]]+)$|https://github.com/\1/\2/issues/\3|")
   printf '[%s](%s)' "$issue" "$link"
 }
 
@@ -51,12 +51,13 @@ require_command() {
 
 require_command git
 require_command node
-require_command op
 require_command jq
 
-echo "> Pulling GitHub token from vault..."
-
-GITHUB_TOKEN=$(op get item 7xorpxvz3je3vozqg3fy3wrcg4 --vault "Shared" --account buildpacks | jq -r '.details.sections[] | select(.fields).fields[] | select(.t == "credential").v')
+if [[ -z "${GITHUB_TOKEN}" ]]; then
+  require_command op
+  echo "> Pulling GitHub token from vault..."
+  GITHUB_TOKEN=$(op get item 7xorpxvz3je3vozqg3fy3wrcg4 --vault "Shared" --account buildpacks | jq -r '.details.sections[] | select(.fields).fields[] | select(.t == "credential").v')
+fi
 
 ####
 # INPUTS / VALIDATION
@@ -107,15 +108,27 @@ fi
 RFC_ID=$(generate_id)
 echo "> Generated RFC number: ${RFC_ID}"
 
-echo "> Creating the following issues:"
-GITHUB_TOKEN="${GITHUB_TOKEN}" node .github/workflows/actions/issues-generation/dist/index.js list --pr "${OWNER}/${REPO}#${PR_NUMBER}" --bot $BOT_USERNAME
+echo "> Creating issues..."
+export GITHUB_TOKEN
 
-echo "> Created:"
-GITHUB_TOKEN="${GITHUB_TOKEN}" node .github/workflows/actions/issues-generation/dist/index.js create --pr "${OWNER}/${REPO}#${PR_NUMBER}" --bot $BOT_USERNAME  --prepend "[RFC #${RFC_ID}] "
+ISSUES_GEN_CLI="node .github/workflows/actions/issues-generation/dist/index.js"
+$ISSUES_GEN_CLI create --pr "${OWNER}/${REPO}#${PR_NUMBER}" --bot $BOT_USERNAME  --prepend "[RFC #${RFC_ID}] "
+ISSUES_TO_LINK=$($ISSUES_GEN_CLI list --pr "${OWNER}/${REPO}#${PR_NUMBER}" --bot $BOT_USERNAME --json | jq -r '[.[] | select(.num) | .repo + "#" + (.num|tostring) ] | join(" ")')
 
-# TODO: Get all created issues
+for ISSUE in ${ISSUES_TO_LINK}; do
+  if [[ $ISSUES_TEXT == "N/A" ]]; then
+    ISSUES_TEXT=$(link_issue "$ISSUE")
+  else
+    ISSUES_TEXT+=", $(link_issue "$ISSUE")"
+  fi
+done
 
-exit
+
+if [[ $NO_ISSUES = false && $ISSUES_TEXT == "N/A" ]]; then
+  echo -e "ERROR! No issues were provided. Are you sure there are no issues that should be linked?"
+  echo -e "ERROR! Either -i or -n is required\n"
+  usage
+fi
 
 echo "> Pulling latest changes...."
 git pull origin --rebase

@@ -2,6 +2,7 @@ import {Command, flags} from '@oclif/command'
 import {
   extractIssuesFromBotComment,
   findFirstBotComment,
+  generateBotComment,
   QueuedIssue
 } from '../bot-comment'
 import {Octokit} from '@octokit/rest'
@@ -70,45 +71,52 @@ NOTE: ${TOKEN_REQUIREMENT}
     }
 
     const octokit = new Octokit({auth: githubToken})
-    const comment = await findFirstBotComment(
+    const botComment = await findFirstBotComment(
       octokit,
       owner,
       repo,
       prNumber,
       options.bot
     )
-    if (!comment) {
+    if (!botComment) {
       this.error('No bot comment found on PR!')
     }
 
-    const queuedIssues = extractIssuesFromBotComment(comment.body)
-    const createdIssues: {queued: QueuedIssue; created: any}[] = [] // eslint-disable-line @typescript-eslint/no-explicit-any
-    const errors: Error[] = []
-    for (const issue of queuedIssues) {
-      const [targetOwner, targetRepo] = issue.repo.split('/')
-      try {
-        const result = await octokit.rest.issues.create({
-          targetOwner,
-          targetRepo,
-          title: (options.prepend || '') + issue.title,
-          labels: issue.labels,
-          body: `This issue have been automatically created from pull request ${options.pr}.`
-        })
+    let errors: Error[] = []
+    const issues = extractIssuesFromBotComment(botComment.body)
 
-        createdIssues.push({
-          queued: issue,
-          created: result.data
+    const [createdIssues, createErrors] = await createIssues(
+      octokit,
+      issues.filter(i => !i.num),
+      options.prepend || '',
+      `This issue have been automatically created from pull request ${options.pr}.`
+    )
+    errors = errors.concat(createErrors)
+
+    this.debug(`${createdIssues.length} created issues...`)
+    const [updatedComment, updateErrors] = generateBotComment(
+      issues,
+      createdIssues.map(({queued, created}) => {
+        return {
+          op: 'creation',
+          uid: queued.uid,
+          num: created.number
+        }
+      })
+    )
+    errors = errors.concat(updateErrors)
+
+    this.debug(`Updated Comment:\n${updatedComment}`)
+    if (botComment && botComment.body !== updatedComment) {
+      try {
+        await octokit.rest.issues.updateComment({
+          owner,
+          repo,
+          comment_id: botComment.id,
+          body: updatedComment
         })
       } catch (error) {
-        if (error instanceof RequestError) {
-          errors.push(
-            Error(
-              `creating issue ${issue.uid}: response=[status=${error.status},msg=${error.message}], request=[method=${error.request.method},url=${error.request.url}]`
-            )
-          )
-        } else {
-          errors.push(error)
-        }
+        errors.push(error)
       }
     }
 
@@ -128,4 +136,51 @@ NOTE: ${TOKEN_REQUIREMENT}
       this.error(`Got the following errors:\n\n  * ${errors.join('\n  * ')}\n`)
     }
   }
+}
+
+/**
+ * A typed version of https://docs.github.com/en/rest/reference/issues#create-an-issue--code-samples
+ */
+interface CreatedIssue {
+  number: number
+  html_url: string
+}
+
+async function createIssues(
+  octokit: Octokit,
+  issuesToCreate: QueuedIssue[],
+  titlePrepend: string,
+  body: string
+): Promise<[{queued: QueuedIssue; created: CreatedIssue}[], Error[]]> {
+  const createdIssues: {queued: QueuedIssue; created: CreatedIssue}[] = []
+  const errors: Error[] = []
+  for (const issue of issuesToCreate.filter(i => !i.num)) {
+    const [targetOwner, targetRepo] = issue.repo.split('/')
+    try {
+      const result = await octokit.rest.issues.create({
+        owner: targetOwner,
+        repo: targetRepo,
+        title: titlePrepend + issue.title,
+        labels: issue.labels,
+        body
+      })
+
+      createdIssues.push({
+        queued: issue,
+        created: result.data
+      })
+    } catch (error) {
+      if (error instanceof RequestError) {
+        errors.push(
+          Error(
+            `creating issue ${issue.uid}: response=[status=${error.status},msg=${error.message}], request=[method=${error.request.method},url=${error.request.url}]`
+          )
+        )
+      } else {
+        errors.push(error)
+      }
+    }
+  }
+
+  return [createdIssues, errors]
 }
