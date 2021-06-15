@@ -1,9 +1,13 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import {updateBotComment} from './bot-comment'
+import {
+  generateBotComment,
+  extractIssuesFromBotComment,
+  findFirstBotComment
+} from './bot-comment'
 import {Operation, parseUserComment} from './parse'
 
-async function main(): Promise<void> {
+export async function action(): Promise<void> {
   try {
     const payload = github.context.payload
     core.info(`PAYLOAD: ${JSON.stringify(payload, null, 2)}`)
@@ -12,7 +16,7 @@ async function main(): Promise<void> {
     const botUsername = core.getInput('bot-username', {required: true})
     const githubToken = core.getInput('github-token', {required: true})
     const octokit = github.getOctokit(githubToken)
-    const issue_number = (payload.issue || payload.pull_request)!.number
+    const issueNumber = (payload.issue || payload.pull_request)!.number
     const username = payload.sender?.login
     if (username === botUsername) {
       core.info(`Not processing comments from bot account '${botUsername}'.`)
@@ -25,20 +29,20 @@ async function main(): Promise<void> {
       operations = parseUserComment(payload.comment.body)
     }
 
-    core.info(`> Searching for bot comment...`)
-    const comments = await octokit.paginate(octokit.rest.issues.listComments, {
+    const botComment = await findFirstBotComment(
+      octokit,
       owner,
       repo,
-      issue_number
-    })
-    const botComment = comments.find(c => c.user?.login === botUsername)
-    if (botComment) {
-      core.info(`Found existing bot comment: ${botComment.html_url}`)
-    }
+      issueNumber,
+      botUsername
+    )
+    const existingQueuedIssues = extractIssuesFromBotComment(
+      (botComment && botComment.body) || ''
+    )
 
     core.info(`> Generating (updated) bot comment...`)
-    const {updatedComment, errors} = updateBotComment(
-      botComment?.body || '',
+    const [updatedComment, errors] = generateBotComment(
+      existingQueuedIssues,
       operations
     )
 
@@ -51,7 +55,7 @@ ${errors.map(e => `  * ${e}`).join('\n')}`
         await octokit.rest.pulls.createReplyForReviewComment({
           owner,
           repo,
-          pull_number: issue_number,
+          pull_number: issueNumber,
           comment_id: payload.comment.id,
           body: errorBody
         })
@@ -59,7 +63,7 @@ ${errors.map(e => `  * ${e}`).join('\n')}`
         await octokit.rest.issues.createComment({
           owner,
           repo,
-          issue_number,
+          issue_number: issueNumber,
           body: errorBody
         })
       }
@@ -79,7 +83,7 @@ ${errors.map(e => `  * ${e}`).join('\n')}`
       await octokit.rest.issues.createComment({
         owner,
         repo,
-        issue_number,
+        issue_number: issueNumber,
         body: updatedComment
       })
     }
@@ -87,5 +91,3 @@ ${errors.map(e => `  * ${e}`).join('\n')}`
     core.setFailed(error.message)
   }
 }
-
-main()
