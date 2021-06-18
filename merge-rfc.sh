@@ -141,7 +141,7 @@ SOURCE_DOC=$(find text -maxdepth 1 -name '0000-*')
 TARGET_DOC=${SOURCE_DOC//0000/${RFC_ID}}
 
 echo "> Updating document: ${SOURCE_DOC}"
-SEDOPTION=
+SEDOPTION="-i"
 if [[ "$OSTYPE" == "darwin"* ]]; then
   SEDOPTION="-i ''"
 fi
