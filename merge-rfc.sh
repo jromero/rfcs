@@ -52,7 +52,7 @@ require_command git
 require_command node
 require_command jq
 
-if [[ -z "${GITHUB_TOKEN}" ]]; then
+if [[ -z "${GITHUB_TOKEN:-}" ]]; then
   require_command op
   echo "> Pulling GitHub token from vault..."
   GITHUB_TOKEN=$(op get item 7xorpxvz3je3vozqg3fy3wrcg4 --vault "Shared" --account buildpacks | jq -r '.details.sections[] | select(.fields).fields[] | select(.t == "credential").v')
