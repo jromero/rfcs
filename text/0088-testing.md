@@ -3,9 +3,9 @@
 - Name: (fill in the feature name: My Feature)
 - Start Date: (fill in today's date: YYYY-MM-DD)
 - Author(s): (Github usernames)
-- RFC Pull Request: (leave blank)
+- RFC Pull Request: [rfcs#23](https://github.com/jromero/rfcs/pull/23)
 - CNB Pull Request: (leave blank)
-- CNB Issue: (leave blank)
+- CNB Issue: [jromero/rfcs#24](https://github.com/jromero/rfcs/issues/24), [jromero/rfcs#25](https://github.com/jromero/rfcs/issues/25)
 - Supersedes: (put "N/A" unless this replaces an existing RFC, then link to that RFC)
 
 # Summary
