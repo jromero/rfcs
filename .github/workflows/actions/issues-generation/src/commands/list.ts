@@ -1,4 +1,5 @@
-import {Command, flags} from '@oclif/command'
+import {Command} from 'commander'
+import log from 'loglevel'
 import {
   extractIssuesFromBotComment,
   findFirstBotComment,
@@ -7,57 +8,20 @@ import {
 import {Octokit} from '@octokit/rest'
 import {parseIssueReference} from '../parse'
 
-export default class List extends Command {
-  static description = 'list queued issues for a pull request'
-
-  static examples = [
-    `$ issues-generation list --pr my/repo#1 --bot my-bot
-
-  * asdfgh - myorg/myrepo "some title" [a-label][b-label]
-  * qwerty - myorg/myrepo "some other title"
-`,
-    `$ issues-generation list --pr my/repo#1 --bot my-bot --json
-
-[
-  {
-    "id": "asdfgh",
-    "repo": "myorg/myrepo",
-    "title": "some title",
-    "labels": ["a-label", "b-label"]
-  },
-  {
-    "id": "qwerty",
-    "repo": "myorg/myrepo",
-    "title": "some other title",
-    "labels": [],
-    "num": 2
-  }
-]
-`,
-    `$ GITHUB_TOKEN=token issues-generation list --pr my/repo#1 --bot my-bot
-
-* asdfgh - myorg/myrepo "some title" [a-label][b-label]
-* qwerty - myorg/myrepo#2 "some other title"
-`
-  ]
-
-  static flags = {
-    help: flags.help({char: 'h'}),
-    json: flags.boolean({description: 'output as json'}),
-    token: flags.string({char: 't', description: 'github token'}),
-    pr: flags.string({
-      description:
-        'pull request reference (format: "{owner}/{repo}#{pr_number}")',
-      required: true
-    }),
-    bot: flags.string({description: 'bot username', required: true})
-  }
-
-  async run(): Promise<void> {
-    const {flags: options} = this.parse(List)
+export const listCommand = new Command('list')
+  .description('List queued issues for a pull request')
+  .option('--json', 'Output as JSON')
+  .option('-t, --token <token>', 'GitHub Token')
+  .requiredOption(
+    '--pr <pr-reference>',
+    'Pull request reference (format: "{owner}/{repo}#{number}'
+  )
+  .requiredOption('--bot <bot-username>', 'Username of the bot account')
+  .action(async function (options) {
     const result = parseIssueReference(options.pr)
     if (result instanceof Error) {
-      this.error(result.message)
+      log.error(result.message)
+      process.exit(2)
     }
 
     const {owner, repo, num: prNumber} = result
@@ -72,22 +36,22 @@ export default class List extends Command {
       options.bot
     )
     if (!comment) {
-      this.error('No bot comment found on PR!')
+      log.error('No bot comment found on PR!')
+      process.exit(2)
     }
 
     const issues = extractIssuesFromBotComment(comment.body)
     if (options.json) {
-      this.log(JSON.stringify(issues, null, 2))
+      log.info(JSON.stringify(issues, null, 2))
     } else {
       if (issues.length === 0) {
-        this.log('No issue found!')
-        this.exit(0)
+        log.info('No issue found!')
+        process.exit(0)
       }
 
       for (const issue of issues) {
-        this.debug(issue)
-        this.log(generateIssueLineItem(issue))
+        log.debug(issue)
+        log.info(generateIssueLineItem(issue))
       }
     }
-  }
-}
+  })

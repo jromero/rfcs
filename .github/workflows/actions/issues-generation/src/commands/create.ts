@@ -1,4 +1,3 @@
-import {Command, flags} from '@oclif/command'
 import {
   extractIssuesFromBotComment,
   findFirstBotComment,
@@ -8,68 +7,39 @@ import {
 import {Octokit} from '@octokit/rest'
 import {RequestError} from '@octokit/request-error'
 import {parseIssueReference} from '../parse'
+import {Command} from 'commander'
+import log from 'loglevel'
 
 const TOKEN_REQUIREMENT = `This call requires a GitHub token. It may be provided via the '--token' flag or 'GITHUB_TOKEN' environment variable.`
 
-export default class Create extends Command {
-  static description = `create queued issues for a pull request
-
+export const createCommand = new Command('create')
+  .description('Create queued issues for a pull request')
+  .option('--json', 'Output as JSON')
+  .option('-t, --token <token>', 'GitHub Token')
+  .option('--prepend <value>', 'Prepend value to title')
+  .requiredOption(
+    '--pr <pr-reference>',
+    'Pull request reference (format: "{owner}/{repo}#{number}'
+  )
+  .requiredOption('--bot <bot-username>', 'Username of the bot account')
+  .addHelpText(
+    'after',
+    `
 NOTE: ${TOKEN_REQUIREMENT}
 `
-
-  static examples = [
-    `$ issues-generation create --pr my/repo#1 --bot my-bot
-
-  * asdfgh → https://github.com/octocat/Hello-World/issues/1234
-  * qwerty → https://github.com/octocat/Hello-World/issues/1235
-`,
-    `$ issues-generation create --pr my/repo#1 --bot my-bot --json
-
-[
-  {
-    "queued": {
-      "id": "asdfgh",
-      "repo": "myorg/myrepo",
-      "title": "some title",
-      "labels": ["a-label", "b-label"]
-    },
-    "created": {
-      "number": 1,
-      "body": "...",
-      "html_url": "...",
-      ...
-    }
-  }
-]
-`
-  ]
-
-  static flags = {
-    help: flags.help({char: 'h'}),
-    json: flags.boolean({description: 'output as json'}),
-    token: flags.string({char: 't', description: 'github token'}),
-    prepend: flags.string({description: 'prepend value to title'}),
-    pr: flags.string({
-      description:
-        'pull request reference (format: "{owner}/{repo}#{pr_number}")',
-      required: true
-    }),
-    bot: flags.string({description: 'bot username', required: true})
-  }
-
-  async run(): Promise<void> {
-    const {flags: options} = this.parse(Create)
+  )
+  .action(async function (options) {
     const parseResult = parseIssueReference(options.pr)
     if (parseResult instanceof Error) {
-      this.error(parseResult.message)
+      log.error(parseResult.message)
+      process.exit(2)
     }
     const {owner, repo, num: prNumber} = parseResult
-
     const githubToken = options.token || process.env.GITHUB_TOKEN
     if (!githubToken) {
-      this.error(TOKEN_REQUIREMENT)
+      log.error(TOKEN_REQUIREMENT)
+      process.exit(2)
     }
-
     const octokit = new Octokit({auth: githubToken})
     const botComment = await findFirstBotComment(
       octokit,
@@ -79,12 +49,11 @@ NOTE: ${TOKEN_REQUIREMENT}
       options.bot
     )
     if (!botComment) {
-      this.error('No bot comment found on PR!')
+      log.error('No bot comment found on PR!')
+      process.exit(2)
     }
-
     let errors: Error[] = []
     const issues = extractIssuesFromBotComment(botComment.body)
-
     const [createdIssues, createErrors] = await createIssues(
       octokit,
       issues.filter(i => !i.num),
@@ -92,8 +61,7 @@ NOTE: ${TOKEN_REQUIREMENT}
       `This issue have been automatically created from pull request ${options.pr}.`
     )
     errors = errors.concat(createErrors)
-
-    this.debug(`${createdIssues.length} created issues...`)
+    log.debug(`${createdIssues.length} created issues...`)
     const [updatedComment, updateErrors] = generateBotComment(
       issues,
       createdIssues.map(({queued, created}) => {
@@ -105,8 +73,7 @@ NOTE: ${TOKEN_REQUIREMENT}
       })
     )
     errors = errors.concat(updateErrors)
-
-    this.debug(`Updated Comment:\n${updatedComment}`)
+    log.debug(`Updated Comment:\n${updatedComment}`)
     if (botComment && botComment.body !== updatedComment) {
       try {
         await octokit.rest.issues.updateComment({
@@ -119,24 +86,22 @@ NOTE: ${TOKEN_REQUIREMENT}
         errors.push(error)
       }
     }
-
     if (options.json) {
-      this.log(JSON.stringify(createdIssues))
+      log.log(JSON.stringify(createdIssues))
     } else {
       if (createdIssues.length === 0) {
-        this.log('No issues created.')
+        log.log('No issues created.')
       } else {
         for (const {queued, created} of createdIssues) {
-          this.log(`  * ${queued.uid} → ${created.html_url}`)
+          log.log(`  * ${queued.uid} → ${created.html_url}`)
         }
       }
     }
-
     if (errors.length > 0) {
-      this.error(`Got the following errors:\n\n  * ${errors.join('\n  * ')}\n`)
+      log.error(`Got the following errors:\n\n  * ${errors.join('\n  * ')}\n`)
+      process.exit(2)
     }
-  }
-}
+  })
 
 /**
  * A typed version of https://docs.github.com/en/rest/reference/issues#create-an-issue--code-samples

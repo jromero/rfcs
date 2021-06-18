@@ -1,8 +1,13 @@
-import {Command} from '@oclif/command'
+import {Command} from 'commander'
 import {action} from '../action'
+import log from 'loglevel'
 
-export default class Action extends Command {
-  static description = `process GitHub Action events
+export const actionCommand = new Command('action')
+  .description('process GitHub Action events')
+  .addHelpText(
+    'after',
+    `
+Details:
 
 This command processes the following GitHub Action events:
 
@@ -10,12 +15,12 @@ This command processes the following GitHub Action events:
   * pull_request_review_comment.[created]
   * pull_request_target.[opened, reopened]
 `
-
-  async run(): Promise<void> {
+  )
+  .action(function () {
     if (process.env.CI !== 'true') {
-      this.error('Refusing to proceed running action in a non-CI environment!')
+      log.error('Refusing to proceed running action in a non-CI environment!')
+      process.exit(2)
     }
 
     action()
-  }
-}
+  })
