@@ -141,8 +141,12 @@ SOURCE_DOC=$(find text -maxdepth 1 -name '0000-*')
 TARGET_DOC=${SOURCE_DOC//0000/${RFC_ID}}
 
 echo "> Updating document: ${SOURCE_DOC}"
-sed -i '' "s|- RFC Pull Request:.*|- RFC Pull Request: [${REPO}#${PR_NUMBER}](https://github.com/${OWNER}/${REPO}/pull/${PR_NUMBER})|" "${SOURCE_DOC}"
-sed -i '' "s|- CNB Issue:.*|- CNB Issue: $ISSUES_TEXT|" "${SOURCE_DOC}"
+SEDOPTION=
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  SEDOPTION="-i ''"
+fi
+sed $SEDOPTION "s|- RFC Pull Request:.*|- RFC Pull Request: [${REPO}#${PR_NUMBER}](https://github.com/${OWNER}/${REPO}/pull/${PR_NUMBER})|" "${SOURCE_DOC}"
+sed $SEDOPTION "s|- CNB Issue:.*|- CNB Issue: $ISSUES_TEXT|" "${SOURCE_DOC}"
 
 echo "> Moving ${SOURCE_DOC} to ${TARGET_DOC}..."
 git mv "${SOURCE_DOC}" "${TARGET_DOC}"
