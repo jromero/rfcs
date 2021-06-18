@@ -1,0 +1,56 @@
+{
+  "name": "issues-generation",
+  "version": "0.0.1",
+  "private": true,
+  "description": "An issues generation tool for GitHub pull requests",
+  "main": "lib/main.js",
+  "bin": {
+    "issues-generation": "./dist/index.js"
+  },
+  "scripts": {
+    "format": "prettier --write src/**/*.ts",
+    "format-check": "prettier --check src/**/*.ts",
+    "lint": "eslint src/**/*.ts",
+    "test": "jest",
+    "validate": "npm run format-check && npm run lint && npm run test",
+    "clean": "rm -rf lib/ && rm -rf dist/",
+    "build": "tsc -b",
+    "prepackage": "npm run clean && npm run build",
+    "package": "npm run prepackage && ncc build lib/commands/index.js --external typescript",
+    "prepare-for-pr": "npm run format && npm run validate && npm run package"
+  },
+  "files": [
+    "/dist"
+  ],
+  "keywords": [
+    "actions"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.2.6",
+    "@actions/github": "^5.0.0",
+    "@octokit/rest": "^18.5.3",
+    "commander": "^7.2.0",
+    "hash.js": "^1.1.7",
+    "loglevel": "^1.7.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.23",
+    "@types/node": "^14.17.3",
+    "@typescript-eslint/parser": "^4.8.1",
+    "@vercel/ncc": "^0.25.1",
+    "eslint": "^7.17.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-github": "^4.1.1",
+    "eslint-plugin-jest": "^24.1.3",
+    "eslint-plugin-prettier": "^3.4.0",
+    "jest": "^26.6.3",
+    "jest-circus": "^26.6.3",
+    "js-yaml": "^3.14.0",
+    "prettier": "2.2.1",
+    "ts-jest": "^26.4.4",
+    "ts-node": "^10.0.0",
+    "typescript": "^4.1.3"
+  }
+}
