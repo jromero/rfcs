@@ -138,7 +138,7 @@ git merge "rfc-${RFC_ID}" --signoff --no-edit --no-ff
 git branch -d "rfc-${RFC_ID}"
 
 SOURCE_DOC=$(find text -maxdepth 1 -name '0000-*')
-TARGET_DOC=${SOURCE_DOC//0000/$(printf "%04d" "${RFC_ID}")}
+TARGET_DOC=${SOURCE_DOC//0000/${RFC_ID}}
 
 echo "> Updating document: ${SOURCE_DOC}"
 sed -i '' "s|- RFC Pull Request:.*|- RFC Pull Request: [${REPO}#${PR_NUMBER}](https://github.com/${OWNER}/${REPO}/pull/${PR_NUMBER})|" "${SOURCE_DOC}"
